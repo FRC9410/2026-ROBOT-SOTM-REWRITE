@@ -14,7 +14,7 @@ import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 /**
  * MapleSim intake zone gated by a state-machine boolean.
  *
- * <p>Front-of-robot in-frame intake, 0.6&nbsp;m wide, capacity 1 fuel ball. Tick
+ * <p>Front-of-robot in-frame intake, 0.6&nbsp;m wide, capacity 10 fuel balls. Tick
  * {@link #update()} from {@code Robot.simulationPeriodic()}; when the supplier is true,
  * the intake zone is extended and collects fuel the robot drives over.
  * {@link #getHeldCount()} is the sim source of truth for "has fuel", and
@@ -28,7 +28,7 @@ public class IntakeSim {
     this.intakeActive = intakeActive;
     this.intakeSim =
         IntakeSimulation.InTheFrameIntake(
-            "Fuel", driveSim, Meters.of(0.6), IntakeSide.FRONT, 1);
+            "Fuel", driveSim, Meters.of(0.6), IntakeSide.FRONT, 30);
   }
 
   public void update() {

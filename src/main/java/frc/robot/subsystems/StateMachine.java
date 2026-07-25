@@ -74,6 +74,8 @@ public class StateMachine extends SubsystemBase {
   private double staticAimAngleDeg = 0.0;
   // Fixed pass-aim heading (degrees, field frame) toward own alliance side.
   private double passAimAngleDeg = 0.0;
+  // True when heading and shooter speed are both within tolerance — set by runShootingToTarget.
+  private boolean readyToFire = false;
 
   // NT pose publishing
   private final StructPublisher<Pose2d> posePublisher =
@@ -396,15 +398,21 @@ public class StateMachine extends SubsystemBase {
         || shooter.getVelocityMotor().getRotorVelocity().getValueAsDouble() > velocityThreshold;
 
     SmartDashboard.putBoolean("shooterAtSpeed", shooterAtSpeed);
-    SmartDashboard.putBoolean("readyToFire", headingOK && shooterAtSpeed);
+    readyToFire = headingOK && shooterAtSpeed;
+    SmartDashboard.putBoolean("readyToFire", readyToFire);
 
-    if (headingOK && shooterAtSpeed) {
+    if (readyToFire) {
       feeder.setVelocity(slowFeeder ? -60 : -2 * shooterVelo);
       spindexer.setVelocity(slowSpindexer ? 70 : 80);
     } else {
       feeder.brake();
       spindexer.brake();
     }
+  }
+
+  // True when heading and shooter speed are both within tolerance this cycle.
+  public boolean isReadyToFire() {
+    return readyToFire;
   }
 
   // Latest SOTM fire-control result. Updated every shooting cycle. */

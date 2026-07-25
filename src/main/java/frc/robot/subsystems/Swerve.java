@@ -387,6 +387,24 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     return m_simDrivetrain;
   }
 
+  /**
+   * Returns MapleSim's ground-truth robot pose, or {@code null} on the real robot.
+   * This is the authoritative position used by MapleSim's collision/intake physics.
+   */
+  public Pose2d getSimWorldPose() {
+    if (m_simDrivetrain == null) return null;
+    return m_simDrivetrain.getSimulatedDriveTrainPose();
+  }
+
+  /**
+   * Seeds CTRE odometry from MapleSim's ground-truth pose without touching MapleSim's
+   * physics body (avoids zeroing velocity). Call after each arena tick.
+   */
+  public void syncOdometryFromSim() {
+    if (m_simDrivetrain == null) return;
+    super.resetPose(m_simDrivetrain.getSimulatedDriveTrainPose());
+  }
+
   @Override
   public void resetPose(Pose2d pose) {
     super.resetPose(pose);

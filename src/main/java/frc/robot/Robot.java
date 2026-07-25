@@ -20,6 +20,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructArrayPublisher;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -32,6 +33,7 @@ import frc.robot.subsystems.StateMachine.RobotState;
 import java.util.ArrayList;
 import java.util.Collections;
 import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnFly;
 
 
@@ -46,6 +48,9 @@ public class Robot extends TimedRobot {
 
   /** Ticks until the next shot is allowed to spawn (~0.5 s @ 50 Hz). */
   private int simShotCooldown = 0;
+  /** Consecutive ticks that readyToFire has been true; must reach SETTLE_TICKS before firing. */
+  private int simReadySettleTicks = 0;
+  private static final int SETTLE_TICKS = 50; // 1 second @ 50 Hz
 
   /** Fuel piece poses for live AdvantageScope field rendering (NT struct arrays). */
   private final StructArrayPublisher<Pose3d> simFuelPoses3dPublisher =
@@ -59,6 +64,12 @@ public class Robot extends TimedRobot {
 
   public Robot() {
     SignalLogger.setPath("/U/ctre-logs/");
+    if (RobotBase.isSimulation()) {
+      // Override the arena before RobotContainer (which constructs Swerve and registers
+      // the drivetrain with the arena). false = no ramp colliders so the robot can drive
+      // over the field bumps instead of being stopped by them.
+      SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
+    }
     m_robotContainer = new RobotContainer();
   }
 
@@ -152,6 +163,10 @@ public class Robot extends TimedRobot {
     // Push MapleSim's gyro reading into the Pigeon2 sim state.
     sm.drivetrain.updateSimState();
 
+    // Sync CTRE odometry to MapleSim's ground-truth pose so AdvantageScope shows
+    // the robot at the same position where MapleSim runs collision/intake physics.
+    sm.drivetrain.syncOdometryFromSim();
+
     maybeSpawnShot(sm);
     publishSimGamePieces(sm);
   }
@@ -198,6 +213,17 @@ public class Robot extends TimedRobot {
     boolean isPassing = sm.getCurrentState() == RobotState.PASSING;
     if (!isShooting && !isPassing) {
       simShotCooldown = 0;
+      simReadySettleTicks = 0;
+      return;
+    }
+    // Mirror the real robot's gate: only fire when heading and speed are both OK.
+    if (!sm.isReadyToFire()) {
+      simReadySettleTicks = 0;
+      return;
+    }
+    // Require the robot to stay on-target for SETTLE_TICKS before spawning the shot.
+    if (simReadySettleTicks < SETTLE_TICKS) {
+      simReadySettleTicks++;
       return;
     }
     if (simShotCooldown > 0) {
@@ -258,6 +284,7 @@ public class Robot extends TimedRobot {
                 Radians.of(pitchRad)));
 
     simShotCooldown = 25;
+    simReadySettleTicks = 0;
   }
 
   @Override
